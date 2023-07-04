@@ -1,0 +1,37 @@
+{
+  "project_info": {
+    "project_number": "402822711168",
+    "firebase_url": "https://ballsqueue-8aa8f-default-rtdb.firebaseio.com",
+    "project_id": "ballsqueue-8aa8f",
+    "storage_bucket": "ballsqueue-8aa8f.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:402822711168:ios:0829f15f7de348229ae365",
+        "android_client_info": {
+          "package_name": "com.impossiblegames.Blocksbuster"
+        }
+      },
+      "api_key": [
+        {
+          "current_key": "AIzaSyCMtKKZVThu6R1T95RNfBva1GEG77RXztU"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 0
+        },
+        "appinvite_service": {
+          "status": 1
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "402822711168-6eh3ntk4khddrigv2v3rq4ldbecpsa77.apps.googleusercontent.com"
+        }
+      ]
+    }
+  ],
+  "configuration_version": "1"
+}
