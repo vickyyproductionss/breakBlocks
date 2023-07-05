@@ -1835,23 +1835,18 @@ MonoBehaviour:
   addNewLevel: 0
   progressSaved: 0
   ballCount: {fileID: 1844067975}
-  checkPointsCount: {fileID: 797379267}
-  TimerText: {fileID: 1029322082}
   HighscoreText: {fileID: 2031077133}
   scoreText: {fileID: 1163895991}
   levelText: {fileID: 645082949}
-  targetText: {fileID: 711831091}
-  timeLeft: 600
-  levelTime: 600
+  MovesText: {fileID: 711831091}
   deadLine: -3
   base_: {x: 0, y: 0}
   forceVal: {x: 0, y: 0}
   GameOverLine: {fileID: 1408818831}
-  target: 0
   IsTesting: 0
+  TotalMoves: 0
   PowerupPopup: {fileID: 970986325}
   BaseButtons: {fileID: 696797162}
-  StartingRows: 3
   ParentBalls: {fileID: 738024591}
   ParentBlocks: {fileID: 2083053684}
 --- !u!114 &426081658

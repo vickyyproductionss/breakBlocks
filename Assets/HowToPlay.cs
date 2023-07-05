@@ -23,7 +23,6 @@ public class HowToPlay : MonoBehaviour
 	bool tuiting = false;
 	void StartTuition()
 	{
-		GameManager.instance.PauseTimer();
 		TeachHowToPlay(0);
 	}
 	void TeachHowToPlay(int index)
@@ -81,7 +80,6 @@ public class HowToPlay : MonoBehaviour
 	IEnumerator OnTutorialFinished()
 	{
 		tuiting = false;
-		GameManager.instance.ResumeTimer();
 		yield return new WaitForSeconds(0.1f);
 		TuitWindow.SetActive(false);
 	}

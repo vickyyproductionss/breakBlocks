@@ -18,7 +18,6 @@ public class PowerupUseController : MonoBehaviour
 
 	public void init(int index)
 	{
-		GameManager.instance.PauseTimer();
 		if(index == 0)
 		{
 			SetDetails(PowerupType.AllDirection);
@@ -120,7 +119,6 @@ public class PowerupUseController : MonoBehaviour
 	}
 	public void GrantReward()
 	{
-		GameManager.instance.ResumeTimer();//Resume timer
 		this.gameObject.GetComponent<OpeningAnimation>().ChangeHeightClose();
 		//Write code to use powerups
 		switch (indexOfPowerup)
@@ -227,6 +225,5 @@ public class PowerupUseController : MonoBehaviour
 	}
 	public void Add10ExtraMinutes()
 	{
-		GameManager.instance.timeLeft += 600;
 	}
 }

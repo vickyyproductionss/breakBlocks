@@ -62,14 +62,10 @@ public class GameManager : MonoBehaviour
     bool f1_spawned = false;
     bool f2_spawned = false;
     public Text ballCount;
-    public Text checkPointsCount;
-    public TMP_Text TimerText;
     public Text HighscoreText;
     public TMP_Text scoreText;
     public TMP_Text levelText;
-    public TMP_Text targetText;
-    public int timeLeft = 600;
-    public int levelTime = 600;
+    public TMP_Text MovesText;
     bool isGameEnded = false;
     bool isGameover = false;
     bool isLevelClear = false;
@@ -77,11 +73,10 @@ public class GameManager : MonoBehaviour
     public Vector2 base_;
     public Vector2 forceVal;
     public LineRenderer GameOverLine;
-    bool TimeIndicatorShown = false;
-    [SerializeField]int target = 0;
     //string Banner_Ad_Id = "BannerAd";
     public Coroutine TimerRoutine;
     [SerializeField] bool IsTesting;
+    [SerializeField] int TotalMoves;
     private void Awake()
     {
         if (instance == null)
@@ -100,48 +95,28 @@ public class GameManager : MonoBehaviour
             {
 				if (_curLevel < 2)
 				{
-					timeLeft = 300;
-				}
-				else
-				{
-					timeLeft = _curLevel * (int)FirebaseManager.instance.remoteConfig.GetValue("TimeFactor").LongValue;
-				}
-				levelTime = timeLeft;
-				if (_curLevel < 2)
-				{
-					timeLeft = 400;
-					target = 1000;
 					_ballsEase = 10;
 					_difficulty = 1;
+                    TotalMoves = 10;
 				}
 				else
 				{
+                    TotalMoves = 10 + _curLevel * (int)FirebaseManager.instance.remoteConfig.GetValue("TargetFactor").LongValue;
 					_ballsEase = (int)FirebaseManager.instance.remoteConfig.GetValue("BallsEase").LongValue;
 					_difficulty = (int)FirebaseManager.instance.remoteConfig.GetValue("Difficulty").LongValue;
-					target = _curLevel * (int)FirebaseManager.instance.remoteConfig.GetValue("TargetFactor").LongValue;
 				}
-				StartingRows = (int)FirebaseManager.instance.remoteConfig.GetValue("InitialRows").LongValue;
 			}
             else
             {
-                timeLeft = 600;
-                target = 100;
+                TotalMoves = 100;
                 _ballsEase = 10;
                 _difficulty = 1;
             }
-
-			string message = ConvertNumber(target) + ": TARGET";
-            PopUpNotice("Your target : " + ConvertNumber(target));
-            targetText.text = message;
+            MovesText.text = "Moves: " + TotalMoves.ToString();
             showGameobjectForTime(targetIndicator, 10);
             if (!PlayerPrefs.HasKey("mission"))
             {
                 PlayerPrefs.SetInt("mission", 1);
-            }
-            if(IsTesting)
-            {
-                target = 100;
-                _ballsEase = 10;
             }
             levelText.text = "LEVEL: "+ (PlayerPrefs.GetInt("mission")).ToString();
 			spawnWalls();
@@ -161,36 +136,7 @@ public class GameManager : MonoBehaviour
             {
                 HighscoreText.text = "    HIGHSCORE: 0";
             }
-            if(SceneManager.GetActiveScene().buildIndex == 1)
-            {
-				if (PlayerPrefs.HasKey("myLevel"))
-				{
-					if (PlayerPrefs.HasKey("savedChildNum"))
-					{
-						RetrieveProgress();
-					}
-					else
-					{
-						PlayerPrefs.SetInt("myLevel", 5);
-						CreateLevel(1, 5);
-					}
-
-				}
-				else
-				{
-					PlayerPrefs.SetInt("myLevel", 5);
-					CreateLevel(1, 5);
-				}
-			}
-            else
-            {
-				PlayerPrefs.SetInt("myLevel", 5);
-				CreateLevel(1, 5);
-			}
-            
-            
-            checkPointsCount.text = "Checkpoints:" + PlayerPrefs.GetInt("myLevel").ToString();
-            TimerRoutine = StartCoroutine(UpdateTimerText());
+			CreateLevel(1, PlayerPrefs.GetInt("myLevel", 5));
         }
     }
     void CreateLevel(int patternIndex, int Level)
@@ -300,6 +246,7 @@ public class GameManager : MonoBehaviour
             }
             if (allBallStationary() == 1)
             {
+                checkEndGame();
                 if(IsAllDirectionActive)
                 {
                     IsAllDirectionActive = false;
@@ -313,10 +260,6 @@ public class GameManager : MonoBehaviour
                 if (ballsDownButton.activeInHierarchy)
                 {
                     ballsDownButton.SetActive(false);
-                }
-                if (BlockParent.transform.childCount == 0)
-                {
-                    CreateLevel();
                 }
                 if (maxSpeedVal > 7)
                 {
@@ -377,17 +320,11 @@ public class GameManager : MonoBehaviour
     private void Update()
     {
         backButton();
-        if (SceneManager.GetActiveScene().buildIndex == 1)
-        {
-            checkEndGame();
-        }
-
         if (isGameEnded)
         {
             PlayerPrefs.DeleteKey("myLevel");
             isGameover = true;
             endGameScreen.SetActive(true);
-            deleteProgress(BlockParent);
             isGameEnded = false;
             stopAllBalls();
 			StopCoroutine(TimerRoutine);
@@ -429,7 +366,6 @@ public class GameManager : MonoBehaviour
 				}
 				if (Input.GetTouch(0).phase == TouchPhase.Ended)
 				{
-                    SaveProgress(BlockParent.gameObject);
 					MainBallDown = false;
 					int tmp = PlayerPrefs.GetInt("spawn");
 					PlayerPrefs.SetInt("spawn", tmp + 1);
@@ -445,7 +381,6 @@ public class GameManager : MonoBehaviour
 			}
 
 		}
-        updateCheckPointsText();
     }
     public void AddTime()
     {
@@ -511,41 +446,10 @@ public class GameManager : MonoBehaviour
     {
         if (!isGameover)
         {
-            for (int i = 0; i < BlockParent.transform.childCount; i++)
-            {
-                if (BlockParent.transform.GetChild(i).position.y < deadLine)
-                {
-                    isGameEnded = true;
-                }
-            }
-            changeColorNearDeadline();
-        }
-    }
-    void changeColorNearDeadline()
-    {
-        for (int i = 0; i < BlockParent.transform.childCount; i++)
-        {
-            if (BlockParent.transform.GetChild(i).position.y > deadLine)
-            {
-                GameOverLine.transform.gameObject.SetActive(false);
-            }
-        }
-        for (int i = 0; i < BlockParent.transform.childCount; i++)
-        {
-            if (BlockParent.transform.GetChild(i).position.y < deadLine + 1)
-            {
-                GameOverLine.transform.gameObject.SetActive(true);
-                GameOverLine.SetPosition(0, new Vector2(-5, deadLine));
-                GameOverLine.SetPosition(1, new Vector2(5, deadLine));
-                if (BlockParent.transform.GetChild(i).GetComponent<SpriteRenderer>().color != _Colors[3])
-                {
-                    StartCoroutine(changeColorOfBlock(BlockParent.transform.GetChild(i).gameObject));
-                }
-                else if (BlockParent.transform.GetChild(i).GetComponent<SpriteRenderer>().color != _Colors[5])
-                {
-                    StartCoroutine(changeColorOfBlock2(BlockParent.transform.GetChild(i).gameObject));
-                }
-            }
+			if (TotalMoves <= 0 && BlockParent.transform.childCount > 0)
+			{
+				isGameEnded = true;
+			}
         }
     }
     IEnumerator changeColorOfBlock(GameObject block)
@@ -578,102 +482,6 @@ public class GameManager : MonoBehaviour
     {
         MessageBox.SetActive(false);
     }
-    [SerializeField] int StartingRows = 3;
-    public void CreateLevel(bool StartingGame = false)
-    {
-        int Rand_f1 = Random.Range(1, 6);
-        int Rand_f2 = Random.Range(1, 6);
-        int maxBlockInColumn = 0;
-        Vector3[] blockPos = new Vector3[10];
-        for (int i = 0; i < 10; i++)
-        {
-            int randomSpawn = Random.Range(0, 2);
-            if (randomSpawn == 1 && maxBlockInColumn < 8)
-            {
-                int randomSpawnF1 = Random.Range(0, 2);
-                int randomSpawnF2 = Random.Range(0, 2);
-                blockPos[i] = camera_.ViewportToWorldPoint(new Vector3((i * 0.1f) + 0.05f, 0.8f, camera_.nearClipPlane));
-                if (Rand_f1 == 1 && !f1_spawned && randomSpawnF1 == 1 && f1_gameobjectParent.transform.childCount == 0)
-                {
-                    GameObject block = Instantiate(f1_prefab, blockPos[i], Quaternion.identity);
-                    maxBlockInColumn++;
-                    f1_spawned = true;
-                    block.transform.parent = f1_gameobjectParent.transform;
-                }
-                else if (Rand_f2 == 1 && !f2_spawned && randomSpawnF2 == 1 && f2_gameobjectParent.transform.childCount == 0)
-                {
-                    int selectedChild = Random.Range(0, 2);
-                    GameObject block = Instantiate(f2_prefab[selectedChild], blockPos[i], Quaternion.identity);
-                    maxBlockInColumn++;
-                    f2_spawned = true;
-                    block.transform.parent = f2_gameobjectParent.transform;
-                }
-                else
-                {
-                    GameObject block = Instantiate(Block, new Vector3(blockPos[i].x, blockPos[i].y+5,0), Quaternion.identity);
-                    block.GetComponent<SpriteRenderer>().color = mainColor;
-                    int ranNumChoose = Random.Range(0, 5);
-                    int numCount = 1;
-                    if (ranNumChoose < 4)
-                    {
-                        numCount = 2;
-                    }
-                    int val = (PlayerPrefs.GetInt("myLevel") * _difficulty * numCount);
-                    val = ConvertToNearestTen(val);
-                    block.GetComponent<ValueHolder>().BlockValue = val;
-                    block.transform.GetChild(0).GetChild(0).GetComponent<TMP_Text>().text = ConvertNumber(val);
-                    block.transform.parent = BlockParent.transform;
-                    block.GetComponent<BlockMovAnim>().Initialise(mainColor, new Vector3(blockPos[i].x, blockPos[i].y, 0),StartingGame);
-                    maxBlockInColumn++;
-                }
-            }
-            if (i >= 7 && maxBlockInColumn == 0)
-            {
-                blockPos[i] = camera_.ViewportToWorldPoint(new Vector3((i * 0.1f) + 0.05f, 0.8f, camera_.nearClipPlane));
-                GameObject block = Instantiate(Block, blockPos[i], Quaternion.identity);
-                block.GetComponent<SpriteRenderer>().color = mainColor;
-                block.transform.GetChild(0).GetChild(0).GetComponent<TMP_Text>().text = PlayerPrefs.GetInt("myLevel").ToString();
-                block.transform.parent = BlockParent.transform;
-                maxBlockInColumn++;
-            }
-        }
-        if(StartingGame && StartingRows > 1)
-        {
-            StartCoroutine(MoveBlocksDown());
-            StartingRows--;
-		}
-    }
-    IEnumerator MoveBlocksDown()
-    {
-		float screenWidth = Screen.width;
-		float screenHeight = Screen.height;
-		float ratio = (float)screenHeight / (float)screenWidth;
-		float downUnit = (1.777777778f * 0.55f) / ratio;
-		for (int i = 0; i < BlockParent.transform.childCount; i++)
-		{
-			Vector2 oldPos = BlockParent.transform.GetChild(i).GetComponent<BlockMovAnim>().targetPosition;
-			Vector2 newPos = new Vector2(oldPos.x, oldPos.y - downUnit);
-			BlockParent.transform.GetChild(i).GetComponent<BlockMovAnim>().Initialise(mainColor, newPos, false);
-		}
-		for (int j = 0; j < f1_gameobjectParent.transform.childCount; j++)
-		{
-			Vector2 oldPos = f1_gameobjectParent.transform.GetChild(j).position;
-			Vector2 newPos = new Vector2(oldPos.x, oldPos.y - downUnit);
-			f1_gameobjectParent.transform.GetChild(j).position = newPos;
-		}
-		for (int j = 0; j < f2_gameobjectParent.transform.childCount; j++)
-		{
-			Vector2 oldPos = f2_gameobjectParent.transform.GetChild(j).position;
-			Vector2 newPos = new Vector2(oldPos.x, oldPos.y - downUnit);
-			f2_gameobjectParent.transform.GetChild(j).position = newPos;
-		}
-        yield return new WaitForSeconds(0.1f);
-		if (PlayerPrefs.HasKey("myLevel"))
-		{
-			PlayerPrefs.SetInt("myLevel", PlayerPrefs.GetInt("myLevel") + 1);
-		}
-		CreateLevel(true);
-	}
 	public int ConvertToNearestTen(int number)
 	{
 		int remainder = number % 10;
@@ -688,10 +496,9 @@ public class GameManager : MonoBehaviour
 	}
 	void CheckLevelClear()
     {
-        if (score >= target && PlayerPrefs.HasKey("myLevel"))
+        if (BlockParent.transform.childCount == 0)
         {
             PlayerPrefs.DeleteKey("myLevel");
-            deleteProgress(BlockParent);
             showMessageInAnimation("congratulations!!!\n mission passed\n level++", 1);
             gameWonBgPanel.SetActive(true);
             GameObject cnfettiFx = Instantiate(confettiFx);
@@ -709,26 +516,6 @@ public class GameManager : MonoBehaviour
     void playWinSound()
     {
 		SoundManager.instance.playThisSound(levelComplete);
-    }
-    void deleteProgress(GameObject blockParent)
-    {
-        int childCount = PlayerPrefs.GetInt("savedChildNum");
-        for (int i = 0; i < childCount; i++)
-        {
-            string childName = "child" + i.ToString();
-            string childPosX = childName + "_posX";
-            string childPosY = childName + "_posY";
-            string childHitVal = childName + "_val";
-            string childColor = childName + "_color";
-            if (PlayerPrefs.HasKey("savedChildNum"))
-            {
-                PlayerPrefs.DeleteKey(childPosX);
-                PlayerPrefs.DeleteKey(childPosY);
-                PlayerPrefs.DeleteKey(childHitVal);
-                PlayerPrefs.DeleteKey(childColor);
-            }
-        }
-        PlayerPrefs.DeleteKey("savedChildNum");
     }
     public void exitApplication()
     {
@@ -775,10 +562,6 @@ public class GameManager : MonoBehaviour
     IEnumerator hideMessageInAnimation(int num, int time)
     {
         yield return new WaitForSeconds(time);
-        if (num == 2)
-        {
-            timeLeft = (10 + (PlayerPrefs.GetInt("mission"))) * 60;
-        }
         animationMessageScreen.SetActive(false);
     }
     void hideMessageAnimated()
@@ -803,7 +586,10 @@ public class GameManager : MonoBehaviour
         {
             ballsDownButton.SetActive(true);
             PlayerPrefs.SetInt("ballCount", 0);
-        }
+
+			TotalMoves -= 1;
+			MovesText.text = "Moves: " + TotalMoves.ToString();
+		}
     }
     void moveAllBalls2()
     {
@@ -818,7 +604,10 @@ public class GameManager : MonoBehaviour
         {
             ballsDownButton.SetActive(true);
             PlayerPrefs.SetInt("ballCount", 0);
-        }
+
+			TotalMoves -= 1;
+			MovesText.text = "Moves: " + TotalMoves.ToString();
+		}
     }
     void loadNewLevel()
     {
@@ -852,32 +641,6 @@ public class GameManager : MonoBehaviour
     {
         notice.SetActive(true);
         notice.transform.GetChild(0).GetComponent<TMP_Text>().text = message;
-    }
-    void RetrieveProgress()
-    {
-        int childCount = PlayerPrefs.GetInt("savedChildNum");
-        timeLeft = PlayerPrefs.GetInt("timeLeft");
-        score = PlayerPrefs.GetInt("score");
-        if (childCount > 0)
-        {
-            for (int i = 0; i < childCount; i++)
-            {
-                string childName = "child" + i.ToString();
-                string childPosX = childName + "_posX";
-                string childPosY = childName + "_posY";
-                string childHitVal = childName + "_val";
-                string childColor = childName + "_color";
-
-                Vector2 position = new Vector2(PlayerPrefs.GetFloat(childPosX), PlayerPrefs.GetFloat(childPosY));
-                int childHitValue = PlayerPrefs.GetInt(childHitVal);
-                GameObject child = Instantiate(Block, position, Quaternion.identity);
-                child.transform.parent = BlockParent.transform;
-				child.transform.GetComponent<SpriteRenderer>().color = _Colors[PlayerPrefs.GetInt(childColor)];
-				child.GetComponent<ValueHolder>().BlockValue = childHitValue;
-                child.GetComponent<BlockMovAnim>().Initialise(_Colors[PlayerPrefs.GetInt(childColor)],position,true);
-                child.transform.GetChild(0).GetChild(0).GetComponent<TMP_Text>().text = ConvertNumber(childHitValue);
-            }
-        }
     }
     void showGameobjectForTime(GameObject gameObject, int time)
     {
@@ -974,108 +737,6 @@ public class GameManager : MonoBehaviour
         foreach(GameObject player in players)
         {
             player.GetComponent<Rigidbody2D>().velocity = Vector2.zero;
-        }
-    }
-    public void SaveProgress(GameObject blockParent)
-    {
-        int childCount = blockParent.transform.childCount;
-        deleteProgress(blockParent);
-        PlayerPrefs.SetInt("savedChildNum", childCount);
-        PlayerPrefs.SetInt("timeLeft", timeLeft);
-        PlayerPrefs.SetInt("score", score);
-        for (int i = 0; i < childCount; i++)
-        {
-            string childName = "child" + i.ToString();
-            string childPosX = childName + "_posX";
-            string childPosY = childName + "_posY";
-            string childHitVal = childName + "_val";
-            string childColor = childName + "_color";
-            for (int j = 0; j < _Colors.Length;j ++)
-            {
-                if(blockParent.transform.GetChild(i).GetComponent<SpriteRenderer>().color == _Colors[j])
-                {
-					PlayerPrefs.SetInt(childColor, j);
-				}
-            }
-            PlayerPrefs.SetFloat(childPosX, blockParent.transform.GetChild(i).transform.position.x);
-            PlayerPrefs.SetFloat(childPosY, blockParent.transform.GetChild(i).transform.position.y);
-            PlayerPrefs.SetInt(childHitVal, blockParent.transform.GetChild(i).GetComponent<ValueHolder>().BlockValue);
-        }
-        PlayerPrefs.Save();
-    }
-    public void PauseTimer()
-    {
-        StopCoroutine(TimerRoutine);
-    }
-    public void ResumeTimer()
-    {
-        if(TimerRoutine != null)
-        {
-            StopCoroutine(TimerRoutine);
-            TimerRoutine = StartCoroutine(UpdateTimerText());
-        }
-        else
-        {
-			TimerRoutine = StartCoroutine(UpdateTimerText());
-		}
-    }
-    IEnumerator UpdateTimerText()
-    {
-        while(timeLeft > 0 && !PlayerGameData.Instance.IsGameOver)
-        {
-			yield return new WaitForSeconds(1);
-			timeLeft -= 1;
-			if (timeLeft <= levelTime / 3 && !TimeIndicatorShown)
-			{
-				//PopUpNotice("< 3 minutes left");
-				showGameobjectForTime(timerIndicator, 15);
-				TimeIndicatorShown = true;
-			}
-			if (timeLeft > levelTime / 3 && TimeIndicatorShown)
-			{
-				TimeIndicatorShown = false;
-				timerIndicator.SetActive(false);
-			}
-
-			if (timeLeft > levelTime / 3)
-			{
-				if (AddTimeButton.activeSelf)
-				{
-					AddTimeButton.SetActive(false);
-				}
-				TimerText.color = Color.green;
-			}
-			else if (timeLeft < levelTime / 3)
-			{
-				if (!AddTimeButton.activeSelf)
-				{
-					AddTimeButton.SetActive(true);
-				}
-				TimerText.color = Color.red;
-			}
-			if (timeLeft % 60 > 9)
-			{
-				TimerText.text = (timeLeft / 60).ToString() + ":" + (timeLeft % 60).ToString() + "  :: TIME LEFT    ";
-			}
-			else
-			{
-				TimerText.text = (timeLeft / 60).ToString() + ":0" + (timeLeft % 60).ToString() + "  :: TIME LEFT   ";
-			}
-		}
-        if(timeLeft <= 0 && timeLeft%60 == 0)
-        {
-			isGameEnded = true;
-		}
-    }
-    void updateCheckPointsText()
-    {
-        if(SceneManager.GetActiveScene().buildIndex == 1)
-        {
-            string preText = checkPointsCount.text;
-            if (preText != "Checkpoint:" + PlayerPrefs.GetInt("myLevel").ToString())
-            {
-                checkPointsCount.text = "   CHECKPOINTS:" + PlayerPrefs.GetInt("myLevel").ToString();
-            }
         }
     }
     public void speedUpAllBalls()

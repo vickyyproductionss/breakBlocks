@@ -148,8 +148,10 @@ public static class Vibration
 #if UNITY_ANDROID
 
             if ( AndroidVersion >= 26 ) {
-                long[] amplitudes;
-                AndroidJavaObject createWaveform = vibrationEffect.CallStatic<AndroidJavaObject> ( "createWaveform", pattern, repeat );
+#pragma warning disable CS0168 // Variable is declared but never used
+				long[] amplitudes;
+#pragma warning restore CS0168 // Variable is declared but never used
+				AndroidJavaObject createWaveform = vibrationEffect.CallStatic<AndroidJavaObject> ( "createWaveform", pattern, repeat );
                 vibrator.Call ( "vibrate", createWaveform );
 
             } else {
