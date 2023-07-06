@@ -6,6 +6,7 @@ using UnityEngine.Video;
 using UnityEngine.SceneManagement;
 using TMPro;
 using UnityEngine.UIElements;
+using System.Threading.Tasks;
 
 public class GameManager : MonoBehaviour
 {
@@ -66,18 +67,18 @@ public class GameManager : MonoBehaviour
     public TMP_Text scoreText;
     public TMP_Text levelText;
     public TMP_Text MovesText;
-    bool isGameEnded = false;
+    public bool isGameEnded = false;
     bool isGameover = false;
     bool isLevelClear = false;
     public float deadLine = 0;
     public Vector2 base_;
     public Vector2 forceVal;
     public LineRenderer GameOverLine;
-    //string Banner_Ad_Id = "BannerAd";
-    public Coroutine TimerRoutine;
     [SerializeField] bool IsTesting;
-    [SerializeField] int TotalMoves;
-    private void Awake()
+    public int LevelMovesCache = 0;
+    public int TotalMoves = 0;
+    public bool Initialised;
+	private void Awake()
     {
         if (instance == null)
         {
@@ -87,6 +88,11 @@ public class GameManager : MonoBehaviour
     }
     void Start()
     {
+        StartAsync();
+    }
+    async Task StartAsync()
+    {
+        Debug.Log("Started");
         if (SceneManager.GetActiveScene().buildIndex == 1 || SceneManager.GetActiveScene().buildIndex == 2)
         {
             int _curLevel = PlayerPrefs.GetInt("mission", 1);
@@ -112,6 +118,19 @@ public class GameManager : MonoBehaviour
                 _ballsEase = 10;
                 _difficulty = 1;
             }
+            int MovesFromServer = await Server.Instance.CheckMovesValueExists(PlayerPrefs.GetInt("mission",1));
+            
+            if (MovesFromServer != -1)
+            {
+                TotalMoves = MovesFromServer;
+                MovesText.text = "Moves: " + TotalMoves.ToString();
+                ShowMessage($"Our best player finished this level in {MovesFromServer} moves only. \ncan you ?");
+            }
+            else
+            {
+				ShowMessage($"Seems like you're the first player on this level.");
+			}
+            LevelMovesCache = TotalMoves;
             MovesText.text = "Moves: " + TotalMoves.ToString();
             showGameobjectForTime(targetIndicator, 10);
             if (!PlayerPrefs.HasKey("mission"))
@@ -136,11 +155,12 @@ public class GameManager : MonoBehaviour
             {
                 HighscoreText.text = "    HIGHSCORE: 0";
             }
-			CreateLevel(1, PlayerPrefs.GetInt("myLevel", 5));
+			CreateLevel(0, PlayerPrefs.GetInt("myLevel", 5));
         }
     }
     void CreateLevel(int patternIndex, int Level)
     {
+        Debug.Log("Here");
 		float screenWidth = Screen.width;
 		float screenHeight = Screen.height;
 		float ratio = (float)screenHeight / (float)screenWidth;
@@ -170,8 +190,12 @@ public class GameManager : MonoBehaviour
 					{
 						numCount = 2;
 					}
-					int val = (PlayerPrefs.GetInt("myLevel") * _difficulty * numCount);
+					int val = (PlayerPrefs.GetInt("mission") * _difficulty * numCount);
 					val = ConvertToNearestTen(val);
+                    if(val < 10)
+                    {
+                        val = 10;
+                    }
 					block.GetComponent<ValueHolder>().BlockValue = val;
 					block.transform.GetChild(0).GetChild(0).GetComponent<TMP_Text>().text = ConvertNumber(val);
 					block.transform.parent = BlockParent.transform;
@@ -183,7 +207,7 @@ public class GameManager : MonoBehaviour
 		{
 			for (int i = 0; i < 10; i++)
 			{
-				for (int j = 2*( 5 - i) - 2; j <= 2*i+1; j++)
+				for (int j = 0; j <= i; j++)
 				{
 					GameObject block = Instantiate(Block, new Vector3(Positions[i, j].x, Positions[i, j].y + 5, 0), Quaternion.identity);
 					block.GetComponent<SpriteRenderer>().color = mainColor;
@@ -193,8 +217,12 @@ public class GameManager : MonoBehaviour
 					{
 						numCount = 2;
 					}
-					int val = (PlayerPrefs.GetInt("myLevel") * _difficulty * numCount);
+					int val = (PlayerPrefs.GetInt("mission") * _difficulty * numCount);
 					val = ConvertToNearestTen(val);
+					if (val < 10)
+					{
+						val = 10;
+					}
 					block.GetComponent<ValueHolder>().BlockValue = val;
 					block.transform.GetChild(0).GetChild(0).GetComponent<TMP_Text>().text = ConvertNumber(val);
 					block.transform.parent = BlockParent.transform;
@@ -202,10 +230,11 @@ public class GameManager : MonoBehaviour
 				}
 			}
 		}
+		Initialised = true;
 	}
     private void FixedUpdate()
     {
-        if (SceneManager.GetActiveScene().buildIndex == 1)
+        if (SceneManager.GetActiveScene().buildIndex != 0 && Initialised)
         {
             if (!isLevelClear)
             {
@@ -228,10 +257,6 @@ public class GameManager : MonoBehaviour
                 {
                     PlayerPrefs.SetInt("prevHighscore", score);
                 }
-            }
-            if (BlockParent.transform.childCount == 0)
-            {
-                showAllClearScreen();
             }
             if (clampSpeedNow)
             {
@@ -266,14 +291,17 @@ public class GameManager : MonoBehaviour
                     maxSpeedVal = 7;
                 }
                 speedUpButton.SetActive(false);
-                if (players[0].GetComponent<SpriteRenderer>().color != Color.green)
+                if(players.Count > 0)
                 {
-                    players[0].GetComponent<SpriteRenderer>().color = Color.green;
-                }
-                if (players[0].GetComponent<SpriteRenderer>().sortingOrder != 2)
-                {
-                    players[0].GetComponent<SpriteRenderer>().sortingOrder = 2;
-                }
+					if (players[0].GetComponent<SpriteRenderer>().color != Color.green)
+					{
+						players[0].GetComponent<SpriteRenderer>().color = Color.green;
+					}
+					if (players[0].GetComponent<SpriteRenderer>().sortingOrder != 2)
+					{
+						players[0].GetComponent<SpriteRenderer>().sortingOrder = 2;
+					}
+				}
                 foreach (GameObject player in players)
                 {
                     player.GetComponent<gamePlay>().collidedToF1 = false;
@@ -319,72 +347,69 @@ public class GameManager : MonoBehaviour
     [SerializeField] GameObject BaseButtons;
     private void Update()
     {
-        backButton();
-        if (isGameEnded)
+        if(Initialised)
         {
-            PlayerPrefs.DeleteKey("myLevel");
-            isGameover = true;
-            endGameScreen.SetActive(true);
-            isGameEnded = false;
-            stopAllBalls();
-			StopCoroutine(TimerRoutine);
-		}
-
-        if (Input.touchCount > 0 && !projectiling && !isGameover && !PowerupPopup.activeInHierarchy && !HowToPlayPopup.activeInHierarchy)
-        {
-            PlayerPrefs.SetInt("ballCount", 0);
-            RaycastHit2D ray;
-            RaycastHit2D ray2;
-			if ((Input.GetTouch(0).position.y < AddTimeButton.transform.GetChild(2).position.y && Input.GetTouch(0).position.y > BaseButtons.transform.position.y + 100))
+			if (isGameEnded)
 			{
-				if (Input.GetTouch(0).phase == TouchPhase.Began || Input.GetTouch(0).phase == TouchPhase.Moved || Input.GetTouch(0).phase == TouchPhase.Stationary)
-				{
-					Touch touchInfo = Input.GetTouch(0);
-					touches[0] = Camera.main.ScreenToWorldPoint(new Vector3(touchInfo.position.x, touchInfo.position.y, -10));
-					int layerMask = ~(LayerMask.GetMask("ball"));
-					ray = Physics2D.Raycast(mainBall.transform.position, new Vector2(touches[0].x, touches[0].y + 4), Mathf.Infinity, layerMask);
-					Vector2 reflectedray = new Vector2();
-					if (ray.collider.tag == "leftWall" || ray.collider.tag == "rightWall" || ray.collider.tag == "block")
-					{
-						reflectedray = new Vector2(mainBall.transform.position.x, 2 * (ray.point.y) - mainBall.transform.position.y);
-					}
-					else if (ray.collider.tag == "topWall" || ray.collider.tag == "blockBase")
-					{
-						reflectedray = new Vector2(2 * (ray.point.x) - mainBall.transform.position.x, mainBall.transform.position.y);
-					}
-					string prevTag = ray.collider.gameObject.tag;
-					int layerMask2 = ~(LayerMask.GetMask(prevTag));
-					ray2 = Physics2D.Raycast(ray.point, reflectedray, Mathf.Infinity, layerMask2);
-					touches[1] = ray.point;
-					touches[2] = reflectedray;
-					Vector2 semifinalPoint = new Vector2(2 * reflectedray.x - touches[1].x, 2 * reflectedray.y - touches[1].y);
-					Vector2 finalPoint = new Vector2(2 * semifinalPoint.x - touches[1].x, 2 * semifinalPoint.y - touches[1].y);
-					mainBall.GetComponent<LineRenderer>().enabled = true;
-					mainBall.GetComponent<LineRenderer>().SetPosition(0, mainBall.transform.position);
-					mainBall.GetComponent<LineRenderer>().SetPosition(1, touches[1]);
-					mainBall.GetComponent<LineRenderer>().SetPosition(2, finalPoint);
-				}
-				if (Input.GetTouch(0).phase == TouchPhase.Ended)
-				{
-					MainBallDown = false;
-					int tmp = PlayerPrefs.GetInt("spawn");
-					PlayerPrefs.SetInt("spawn", tmp + 1);
-					changeForceVal();
-					clampSpeedNow = true;
-					foreach (GameObject player in players)
-					{
-						player.GetComponent<LineRenderer>().enabled = false;
-					}
-					projectiling = true;
-					moveAllBalls1();
-				}
+				PlayerPrefs.DeleteKey("myLevel");
+				isGameover = true;
+				endGameScreen.SetActive(true);
+				isGameEnded = false;
+				stopAllBalls();
 			}
 
+			if (Input.touchCount > 0 && !projectiling && !isGameover && !PowerupPopup.activeInHierarchy && !HowToPlayPopup.activeInHierarchy)
+			{
+				PlayerPrefs.SetInt("ballCount", 0);
+				RaycastHit2D ray;
+				RaycastHit2D ray2;
+				if ((Input.GetTouch(0).position.y < AddTimeButton.transform.GetChild(2).position.y && Input.GetTouch(0).position.y > BaseButtons.transform.position.y + 100))
+				{
+					if (Input.GetTouch(0).phase == TouchPhase.Began || Input.GetTouch(0).phase == TouchPhase.Moved || Input.GetTouch(0).phase == TouchPhase.Stationary)
+					{
+						Touch touchInfo = Input.GetTouch(0);
+						touches[0] = Camera.main.ScreenToWorldPoint(new Vector3(touchInfo.position.x, touchInfo.position.y, -10));
+						int layerMask = ~(LayerMask.GetMask("ball"));
+						ray = Physics2D.Raycast(mainBall.transform.position, new Vector2(touches[0].x, touches[0].y + 4), Mathf.Infinity, layerMask);
+						Vector2 reflectedray = new Vector2();
+						if (ray.collider.tag == "leftWall" || ray.collider.tag == "rightWall" || ray.collider.tag == "block")
+						{
+							reflectedray = new Vector2(mainBall.transform.position.x, 2 * (ray.point.y) - mainBall.transform.position.y);
+						}
+						else if (ray.collider.tag == "topWall" || ray.collider.tag == "blockBase")
+						{
+							reflectedray = new Vector2(2 * (ray.point.x) - mainBall.transform.position.x, mainBall.transform.position.y);
+						}
+						string prevTag = ray.collider.gameObject.tag;
+						int layerMask2 = ~(LayerMask.GetMask(prevTag));
+						ray2 = Physics2D.Raycast(ray.point, reflectedray, Mathf.Infinity, layerMask2);
+						touches[1] = ray.point;
+						touches[2] = reflectedray;
+						Vector2 semifinalPoint = new Vector2(2 * reflectedray.x - touches[1].x, 2 * reflectedray.y - touches[1].y);
+						Vector2 finalPoint = new Vector2(2 * semifinalPoint.x - touches[1].x, 2 * semifinalPoint.y - touches[1].y);
+						mainBall.GetComponent<LineRenderer>().enabled = true;
+						mainBall.GetComponent<LineRenderer>().SetPosition(0, mainBall.transform.position);
+						mainBall.GetComponent<LineRenderer>().SetPosition(1, touches[1]);
+						mainBall.GetComponent<LineRenderer>().SetPosition(2, finalPoint);
+					}
+					if (Input.GetTouch(0).phase == TouchPhase.Ended)
+					{
+						MainBallDown = false;
+						int tmp = PlayerPrefs.GetInt("spawn");
+						PlayerPrefs.SetInt("spawn", tmp + 1);
+						changeForceVal();
+						clampSpeedNow = true;
+						foreach (GameObject player in players)
+						{
+							player.GetComponent<LineRenderer>().enabled = false;
+						}
+						projectiling = true;
+						moveAllBalls1();
+					}
+				}
+
+			}
 		}
-    }
-    public void AddTime()
-    {
-        
     }
     int allBallStationary()
     {
@@ -418,37 +443,14 @@ public class GameManager : MonoBehaviour
         }
         return Val;
     }
-    void backButton()
-    {
-        if(Application.platform == RuntimePlatform.Android || Application.platform == RuntimePlatform.WindowsEditor)
-        {
-            if(Input.GetKey(KeyCode.Escape))
-            {
-                if(SceneManager.GetActiveScene().buildIndex == 0)
-                {
-                    Time.timeScale = 0;
-                    BackButtonConfirmationWin.SetActive(true);
-                }
-                else if(SceneManager.GetActiveScene().buildIndex == 1)
-                {
-                    Time.timeScale = 0;
-                    BackButtonConfirmationWin.SetActive(true);
-                }
-                else if(SceneManager.GetActiveScene().buildIndex == 1)
-                {
-                    Time.timeScale = 0;
-                    BackButtonConfirmationWin.SetActive(true);
-                }
-            }
-        }
-    }
     void checkEndGame()
     {
         if (!isGameover)
         {
 			if (TotalMoves <= 0 && BlockParent.transform.childCount > 0)
 			{
-				isGameEnded = true;
+                PowerupPopup.SetActive(true);
+                PowerupPopup.GetComponent<PowerupUseController>().init(3);
 			}
         }
     }
@@ -509,7 +511,6 @@ public class GameManager : MonoBehaviour
             Invoke("loadNewLevel", 7);
             PlayerPrefs.Save();
             stopAllBalls();
-			StopCoroutine(TimerRoutine);
 		}
     }
     public GameObject ParentBalls,ParentBlocks;
@@ -611,7 +612,6 @@ public class GameManager : MonoBehaviour
     }
     void loadNewLevel()
     {
-		StopCoroutine(GameManager.instance.TimerRoutine);
 		endGameScreen.SetActive(true);
         endGameScreen.GetComponent<GameOverPopupController>().IsWin = true;
 	}
@@ -715,22 +715,21 @@ public class GameManager : MonoBehaviour
         string formattedNumber = number.ToString("0.##") + suffixes[suffixIndex];
         return formattedNumber;
     }
-    void showAllClearScreen()
-    {
-        ShowMessage("Great!!!\nAll blocks busted.");
-    }
     public void ShowMessage(string message, bool Errormessage = false)
     {
-        MessageBox.SetActive(true);
-        if(Errormessage)
+        if(PlayerPrefs.HasKey("HowToPlay"))
         {
-			MessageBox.transform.GetChild(0).GetComponent<TMP_Text>().color = Color.red;
+			MessageBox.SetActive(true);
+			if (Errormessage)
+			{
+				MessageBox.transform.GetChild(0).GetComponent<TMP_Text>().color = Color.red;
+			}
+			else
+			{
+				MessageBox.transform.GetChild(0).GetComponent<TMP_Text>().color = Color.white;
+			}
+			MessageBox.transform.GetChild(0).GetComponent<TMP_Text>().text = message;
 		}
-        else
-        {
-			MessageBox.transform.GetChild(0).GetComponent<TMP_Text>().color = Color.white;
-        }
-        MessageBox.transform.GetChild(0).GetComponent<TMP_Text>().text = message;
     }
     void stopAllBalls()
     {

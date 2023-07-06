@@ -67,8 +67,8 @@ public class HowToPlay : MonoBehaviour
 				NextButton.onClick.AddListener(() => TeachHowToPlay(5));
 				break;
 			case 5:
-				Head.text = "Add time";
-				Description.text = "Adds extra 10 minutes.\n\n<color=green>100 gems</color>";
+				Head.text = "Add moves";
+				Description.text = "Adds extra 10 moves.\n\n<color=green>100 gems</color>";
 				Highlighter.GetComponent<RectTransform>().position = Buttons[index].GetComponent<RectTransform>().position;
 				NextButton.transform.GetChild(0).GetComponent<TMP_Text>().text = "FINSIH";
 				PlayerPrefs.SetString("HowToPlay", "Done");

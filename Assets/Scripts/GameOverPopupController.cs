@@ -19,7 +19,7 @@ public class GameOverPopupController : MonoBehaviour
 
 	public bool IsWin;
 
-	private void Start()
+	private async void Start()
 	{
 		GameManager.instance.PowerupButtons.SetActive(false);
 		GameManager.instance.ParentBalls.SetActive(false);
@@ -30,6 +30,8 @@ public class GameOverPopupController : MonoBehaviour
 			Message.text = "LEVEL COMPLETE";
 			ContinueButtonText.text = "NEXT";
 			IsWin = false;
+			int difference = GameManager.instance.LevelMovesCache - GameManager.instance.TotalMoves;
+			Server.Instance.UpdateOrCreateMovesValue(PlayerPrefs.GetInt("mission") - 1, difference);
 		}
 		else
 		{

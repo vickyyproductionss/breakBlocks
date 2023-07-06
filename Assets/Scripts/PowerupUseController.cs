@@ -14,7 +14,8 @@ public class PowerupUseController : MonoBehaviour
 	[SerializeField] TMP_Text Heading;
 	[SerializeField] TMP_Text Description;
 	[SerializeField] GameObject AllDirectionsPrefab;
-	[SerializeField] Button AllDirectionButton, BottomClearButton, AddBallsButton; 
+	[SerializeField] Button AllDirectionButton, BottomClearButton, AddBallsButton;
+	[SerializeField] GameObject UseGemsButton,CloseButton,SkipButton;
 
 	public void init(int index)
 	{
@@ -32,12 +33,29 @@ public class PowerupUseController : MonoBehaviour
 		}
 		else if( index == 3)
 		{
-			SetDetails(PowerupType.AddTime);
+			SetDetails(PowerupType.AddMoves);
 		}
+	}
+	public void OutOfMoves_SkipBtnClick()
+	{
+		GameManager.instance.isGameEnded = true;
+		this.gameObject.SetActive(false);
 	}
 	public void SetDetails(PowerupType type)
 	{
 		indexOfPowerup = type;
+		if(type == PowerupType.AddMoves && GameManager.instance.TotalMoves <= 0)
+		{
+			UseGemsButton.SetActive(false);
+			SkipButton.SetActive(true);
+			CloseButton.GetComponent<Button>().onClick.AddListener(() => OutOfMoves_SkipBtnClick());
+		}
+		else
+		{
+			UseGemsButton.SetActive(true);
+			SkipButton.SetActive(false);
+			CloseButton.GetComponent<Button>().onClick.AddListener(() => gameObject.SetActive(false));
+		}
 		switch (type)
 		{
 			case PowerupType.AllDirection:
@@ -52,15 +70,15 @@ public class PowerupUseController : MonoBehaviour
 				Heading.text = "Add balls";
 				Description.text = "You will get,\n 10 extra balls for this match.";
 				break;
-			case PowerupType.AddTime:
-				Heading.text = "Add time";
-				Description.text = "You will get ,\n10 extra minutes for this match.";
+			case PowerupType.AddMoves:
+				Heading.text = "Add moves";
+				Description.text = "You will get ,\n10 extra moves for this match.";
 				break;
 		}
 	}
 	public enum PowerupType
 	{
-		AllDirection,BottomThree,Add10Balls,AddTime
+		AllDirection,BottomThree,Add10Balls,AddMoves
 	}
 	public void OnClick_WatchAd()
 	{
@@ -135,8 +153,8 @@ public class PowerupUseController : MonoBehaviour
 				Add10ExtraBalls();
 				AddBallsButton.interactable = false;
 				break;
-			case PowerupType.AddTime:
-				Add10ExtraMinutes();
+			case PowerupType.AddMoves:
+				Add10ExtraMoves();
 				break;
 		}
 	}
@@ -223,7 +241,10 @@ public class PowerupUseController : MonoBehaviour
 	{
 		GameManager.instance.Give10ExtraBalls();
 	}
-	public void Add10ExtraMinutes()
+	public void Add10ExtraMoves()
 	{
+		GameManager.instance.TotalMoves += 10;
+		GameManager.instance.MovesText.text = "Moves: "+ GameManager.instance.TotalMoves.ToString();
+		GameManager.instance.LevelMovesCache += 10;
 	}
 }
