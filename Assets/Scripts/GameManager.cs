@@ -78,6 +78,7 @@ public class GameManager : MonoBehaviour
     public int LevelMovesCache = 0;
     public int TotalMoves = 0;
     public bool Initialised;
+    public List<string> Patterns;
 	private void Awake()
     {
         if (instance == null)
@@ -107,7 +108,7 @@ public class GameManager : MonoBehaviour
 				}
 				else
 				{
-                    TotalMoves = 10 + _curLevel * (int)FirebaseManager.instance.remoteConfig.GetValue("TargetFactor").LongValue;
+                    TotalMoves = _curLevel * _curLevel * (int)FirebaseManager.instance.remoteConfig.GetValue("TargetFactor").LongValue;
 					_ballsEase = (int)FirebaseManager.instance.remoteConfig.GetValue("BallsEase").LongValue;
 					_difficulty = (int)FirebaseManager.instance.remoteConfig.GetValue("Difficulty").LongValue;
 				}
@@ -155,80 +156,58 @@ public class GameManager : MonoBehaviour
             {
                 HighscoreText.text = "    HIGHSCORE: 0";
             }
-			CreateLevel(0, PlayerPrefs.GetInt("myLevel", 5));
+            CreateLevel(Random.Range(0,Patterns.Count), PlayerPrefs.GetInt("myLevel", 5));
         }
     }
-    void CreateLevel(int patternIndex, int Level)
+	List<int> ExtractNumbers(string input)
+	{
+		List<int> numbersList = new List<int>();
+
+		string[] numberStrings = input.Split('-');
+
+		foreach (string numberString in numberStrings)
+		{
+			if (int.TryParse(numberString, out int number))
+			{
+				numbersList.Add(number);
+			}
+		}
+
+		return numbersList;
+	}
+	void CreateLevel(int patternIndex, int Level)
     {
         Debug.Log("Here");
 		float screenWidth = Screen.width;
 		float screenHeight = Screen.height;
 		float ratio = (float)screenHeight / (float)screenWidth;
 		float downUnit = (1.777777778f * 0.55f) / ratio;
-		Vector3[,] Positions;
-		Positions = new Vector3[10, 10]; // Initialize the positions array
+        List<Vector3> positionList = new List<Vector3>();
         for(int i = 0; i < 10; i++)
         {
             for(float j = 0; j < 10; j++)
             {
-                Positions[i,(int)j] = camera_.ViewportToWorldPoint(new Vector3((j * 0.1f) + 0.05f, 0.8f, camera_.nearClipPlane));
-                Positions[i, (int)j] = new Vector3(Positions[i, (int)j].x, Positions[i, (int)j].y - (i * downUnit), Positions[i, (int)j].z);
-                Debug.Log($"{Positions[i, (int)j]} + downunit is: {downUnit}");
+                Vector3 Pos = camera_.ViewportToWorldPoint(new Vector3((j * 0.1f) + 0.05f, 0.8f, camera_.nearClipPlane));
+                Pos = new Vector3(Pos.x, Pos.y - (i * downUnit), Pos.z);
+                positionList.Add(Pos);
 			}
 		}
-        if(patternIndex == 0)
-        {
-            for( int i = 0; i < 10; i++)
-            {
-                for (int j = 0; j <= i; j++)
-                {
-					GameObject block = Instantiate(Block, new Vector3(Positions[i,j].x, Positions[i, j].y + 5, 0), Quaternion.identity);
-					block.GetComponent<SpriteRenderer>().color = mainColor;
-					int ranNumChoose = Random.Range(0, 5);
-					int numCount = 1;
-					if (ranNumChoose < 4)
-					{
-						numCount = 2;
-					}
-					int val = (PlayerPrefs.GetInt("mission") * _difficulty * numCount);
-					val = ConvertToNearestTen(val);
-                    if(val < 10)
-                    {
-                        val = 10;
-                    }
-					block.GetComponent<ValueHolder>().BlockValue = val;
-					block.transform.GetChild(0).GetChild(0).GetComponent<TMP_Text>().text = ConvertNumber(val);
-					block.transform.parent = BlockParent.transform;
-					block.GetComponent<BlockMovAnim>().Initialise(mainColor, new Vector3(Positions[i, j].x, Positions[i, j].y, 0), true);
-				}
-            }    
-        }
-		if (patternIndex == 1)
+        List<int> indexListForPattern = ExtractNumbers(Patterns[patternIndex]);
+		for (int i = 0; i < indexListForPattern.Count; i++)
 		{
-			for (int i = 0; i < 10; i++)
+			GameObject block = Instantiate(Block, new Vector3(positionList[indexListForPattern[i]].x, positionList[indexListForPattern[i]].y + 5, 0), Quaternion.identity);
+			block.GetComponent<SpriteRenderer>().color = mainColor;
+			int ranNumChoose = Random.Range(0, 5);
+			int val = (PlayerPrefs.GetInt("mission",1) * _difficulty);
+			val = ConvertToNearestTen(val);
+			if (val < 10)
 			{
-				for (int j = 0; j <= i; j++)
-				{
-					GameObject block = Instantiate(Block, new Vector3(Positions[i, j].x, Positions[i, j].y + 5, 0), Quaternion.identity);
-					block.GetComponent<SpriteRenderer>().color = mainColor;
-					int ranNumChoose = Random.Range(0, 5);
-					int numCount = 1;
-					if (ranNumChoose < 4)
-					{
-						numCount = 2;
-					}
-					int val = (PlayerPrefs.GetInt("mission") * _difficulty * numCount);
-					val = ConvertToNearestTen(val);
-					if (val < 10)
-					{
-						val = 10;
-					}
-					block.GetComponent<ValueHolder>().BlockValue = val;
-					block.transform.GetChild(0).GetChild(0).GetComponent<TMP_Text>().text = ConvertNumber(val);
-					block.transform.parent = BlockParent.transform;
-					block.GetComponent<BlockMovAnim>().Initialise(mainColor, new Vector3(Positions[i, j].x, Positions[i, j].y, 0), true);
-				}
+				val = 10;
 			}
+			block.GetComponent<ValueHolder>().BlockValue = val;
+			block.transform.GetChild(0).GetChild(0).GetComponent<TMP_Text>().text = ConvertNumber(val);
+			block.transform.parent = BlockParent.transform;
+			block.GetComponent<BlockMovAnim>().Initialise(mainColor, new Vector3(positionList[indexListForPattern[i]].x, positionList[indexListForPattern[i]].y, 0), true);
 		}
 		Initialised = true;
 	}

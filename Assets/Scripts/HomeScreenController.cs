@@ -12,7 +12,7 @@ public class HomeScreenController : MonoBehaviour
     {
         Instance = this;
     }
-    private void start()
+    private void Start()
     {
         ResourcesManager.Instance.OnInventoryUpdate += UpdateGemsAndGolds;
     }
